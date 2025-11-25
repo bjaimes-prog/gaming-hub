@@ -89,7 +89,7 @@ export default function GamingHub() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Trophy className="text-cyan-400" size={28} />
-            <span>Gaming Squad</span>
+            <span>Gaming Squad - W3T B3AnS</span>
           </h1>
           <div className="flex items-center gap-4">
             {liveMembers.length > 0 && (
