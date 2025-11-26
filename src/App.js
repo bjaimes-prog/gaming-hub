@@ -1,93 +1,99 @@
 import { useState, useEffect } from 'react';
 import { Upload, Twitch, Video, Radio, Users, X, Play, Trash2, Trophy } from 'lucide-react';
 
-const defaultClips = [
-  { id: 1, title: "Insane Clutch in Valorant", game: "Valorant", uploader: "Player1", url: "https://example.com/clip1", date: "2024-01-15" },
-  { id: 2, title: "No-Scope Headshot", game: "CS2", uploader: "Player2", url: "https://example.com/clip2", date: "2024-01-14" },
-];
-
-const defaultMembers = [
-  { id: 1, name: "ShadowX", twitch: "https://twitch.tv/player1", isLive: true, streamTitle: "Ranked Grind!", game: "Valorant" },
-  { id: 2, name: "PhoenixRise", twitch: "https://twitch.tv/player2", isLive: false, streamTitle: "", game: "" },
-  { id: 3, name: "NightWolf", twitch: "https://twitch.tv/player3", isLive: true, streamTitle: "Chill vibes", game: "Minecraft" },
-];
+const API_URL = 'https://w3tb3ans.com/api';
 
 export default function GamingHub() {
   const [activeTab, setActiveTab] = useState('live');
-  const [clips, setClips] = useState(defaultClips);
-  const [members, setMembers] = useState(defaultMembers);
+  const [clips, setClips] = useState([]);
+  const [members, setMembers] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [newClip, setNewClip] = useState({ title: '', game: '', url: '', uploader: '' });
   const [newMember, setNewMember] = useState({ name: '', twitch: '', isLive: false, streamTitle: '', game: '' });
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Storage helper functions
-  const storage = {
-    async get(key) {
-      if (window.storage) {
-        try {
-          const result = await window.storage.get(key);
-          return result?.value ? JSON.parse(result.value) : null;
-        } catch { return null; }
-      } else if (typeof localStorage !== 'undefined') {
-        const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : null;
-      }
-      return null;
-    },
-    async set(key, value) {
-      if (window.storage) {
-        await window.storage.set(key, JSON.stringify(value));
-      } else if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(key, JSON.stringify(value));
-      }
-    }
-  };
-
-  // Load data from storage on mount
+  // Load data from API on mount
   useEffect(() => {
     const loadData = async () => {
-      const savedClips = await storage.get('gaming-hub-clips');
-      if (savedClips) setClips(savedClips);
-      
-      const savedMembers = await storage.get('gaming-hub-members');
-      if (savedMembers) setMembers(savedMembers);
-      
+      try {
+        const [clipsRes, membersRes] = await Promise.all([
+          fetch(`${API_URL}/clips`),
+          fetch(`${API_URL}/members`)
+        ]);
+        setClips(await clipsRes.json());
+        setMembers(await membersRes.json());
+      } catch (e) {
+        console.error('Failed to load data:', e);
+      }
       setIsLoaded(true);
     };
     loadData();
   }, []);
 
-  // Save clips to storage whenever they change
-  useEffect(() => {
-    if (isLoaded) storage.set('gaming-hub-clips', clips);
-  }, [clips, isLoaded]);
-
-  // Save members to storage whenever they change
-  useEffect(() => {
-    if (isLoaded) storage.set('gaming-hub-members', members);
-  }, [members, isLoaded]);
-
-  const handleUploadClip = () => {
+  const handleUploadClip = async () => {
     if (newClip.title && newClip.url) {
-      setClips([...clips, { id: Date.now(), ...newClip, date: new Date().toISOString().split('T')[0] }]);
-      setNewClip({ title: '', game: '', url: '', uploader: '' });
-      setShowUploadModal(false);
+      try {
+        const res = await fetch(`${API_URL}/clips`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...newClip, date: new Date().toISOString().split('T')[0] })
+        });
+        const clip = await res.json();
+        setClips([clip, ...clips]);
+        setNewClip({ title: '', game: '', url: '', uploader: '' });
+        setShowUploadModal(false);
+      } catch (e) {
+        console.error('Failed to add clip:', e);
+      }
     }
   };
 
-  const handleAddMember = () => {
+  const handleAddMember = async () => {
     if (newMember.name && newMember.twitch) {
-      setMembers([...members, { id: Date.now(), ...newMember }]);
-      setNewMember({ name: '', twitch: '', isLive: false, streamTitle: '', game: '' });
-      setShowAddMemberModal(false);
+      try {
+        const res = await fetch(`${API_URL}/members`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newMember)
+        });
+        const member = await res.json();
+        setMembers([member, ...members]);
+        setNewMember({ name: '', twitch: '', isLive: false, streamTitle: '', game: '' });
+        setShowAddMemberModal(false);
+      } catch (e) {
+        console.error('Failed to add member:', e);
+      }
     }
   };
 
-  const deleteClip = (id) => setClips(clips.filter(c => c.id !== id));
-  const deleteMember = (id) => setMembers(members.filter(m => m.id !== id));
-  const toggleLive = (id) => setMembers(members.map(m => m.id === id ? {...m, isLive: !m.isLive} : m));
+  const deleteClip = async (id) => {
+    try {
+      await fetch(`${API_URL}/clips/${id}`, { method: 'DELETE' });
+      setClips(clips.filter(c => c.id !== id));
+    } catch (e) {
+      console.error('Failed to delete clip:', e);
+    }
+  };
+
+  const deleteMember = async (id) => {
+    try {
+      await fetch(`${API_URL}/members/${id}`, { method: 'DELETE' });
+      setMembers(members.filter(m => m.id !== id));
+    } catch (e) {
+      console.error('Failed to delete member:', e);
+    }
+  };
+
+  const toggleLive = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/members/${id}/toggle-live`, { method: 'PATCH' });
+      const updated = await res.json();
+      setMembers(members.map(m => m.id === id ? { ...m, isLive: updated.isLive } : m));
+    } catch (e) {
+      console.error('Failed to toggle live:', e);
+    }
+  };
 
   const liveMembers = members.filter(m => m.isLive);
 
