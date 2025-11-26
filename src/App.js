@@ -10,10 +10,12 @@ export default function GamingHub() {
   const [members, setMembers] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [clipImagePreview, setClipImagePreview] = useState('');
+  const [memberImagePreview, setMemberImagePreview] = useState('');
   const [showEditClipModal, setShowEditClipModal] = useState(false);
   const [showEditMemberModal, setShowEditMemberModal] = useState(false);
-  const [newClip, setNewClip] = useState({ title: '', game: '', url: '', uploader: '' });
-  const [newMember, setNewMember] = useState({ name: '', twitch: '', isLive: false, streamTitle: '', game: '' });
+  const [newClip, setNewClip] = useState({ title: '', game: '', url: '', uploader: '', image: '' });
+  const [newMember, setNewMember] = useState({ name: '', twitch: '', isLive: false, streamTitle: '', game: '', image: '' });
   const [editingClip, setEditingClip] = useState(null);
   const [editingMember, setEditingMember] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -46,6 +48,28 @@ export default function GamingHub() {
     loadData();
   }, []);
 
+  const handleImageUpload = (e, type) => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result;
+      if (type === 'clip') {
+        setClipImagePreview(base64);
+        setNewClip(prev => ({ ...prev, image: base64 }));
+      } else if (type === 'member') {
+        setMemberImagePreview(base64);
+        setNewMember(prev => ({ ...prev, image: base64 }));
+      } else if (type === 'editClip') {
+        setEditingClip(prev => ({ ...prev, image: base64 }));
+      } else if (type === 'editMember') {
+        setEditingMember(prev => ({ ...prev, image: base64 }));
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
   const handleUploadClip = async () => {
     if (newClip.title && newClip.url) {
       try {
@@ -56,7 +80,8 @@ export default function GamingHub() {
         });
         const clip = await res.json();
         setClips([clip, ...clips]);
-        setNewClip({ title: '', game: '', url: '', uploader: '' });
+        setNewClip({ title: '', game: '', url: '', uploader: '', image: '' });
+        setClipImagePreview('');
         setShowUploadModal(false);
       } catch (e) {
         console.error('Failed to add clip:', e);
@@ -92,7 +117,8 @@ export default function GamingHub() {
         });
         const member = await res.json();
         setMembers([member, ...members]);
-        setNewMember({ name: '', twitch: '', isLive: false, streamTitle: '', game: '' });
+        setMemberImagePreview('');
+        setNewMember({ name: '', twitch: '', isLive: false, streamTitle: '', game: '', image: '' });
         setShowAddMemberModal(false);
       } catch (e) {
         console.error('Failed to add member:', e);
@@ -267,8 +293,12 @@ export default function GamingHub() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {clips.map(clip => (
                 <div key={clip.id} className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700 hover:border-cyan-500/50 transition-all group">
-                  <div className="aspect-video bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center relative">
-                    <Video size={40} className="text-gray-600" />
+                  <div className="aspect-video bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center relative overflow-hidden">
+                      {clip.image ? (
+                        <img src={clip.image} alt={clip.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <Video size={40} className="text-gray-600" />
+                      )}
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Play size={40} className="text-white" />
                     </div>
@@ -318,8 +348,12 @@ export default function GamingHub() {
               {members.map(member => (
                 <div key={member.id} className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700 hover:border-cyan-500/50 transition-all">
                   <div className="flex items-center gap-3 sm:gap-4 mb-4">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                      <Users size={20} />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {member.image ? (
+                        <img src={member.image} alt={member.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Users size={20} />
+                      )}
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-bold text-base sm:text-lg truncate">{member.name}</h3>
@@ -363,9 +397,23 @@ export default function GamingHub() {
           <div className="bg-gray-800 rounded-xl p-4 sm:p-6 w-full max-w-md border border-gray-700 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg sm:text-xl font-bold">Upload Clip</h3>
-              <button onClick={() => setShowUploadModal(false)} className="text-gray-400 hover:text-white p-1"><X size={24} /></button>
+              <button onClick={() => { setShowUploadModal(false); setClipImagePreview(''); }} className="text-gray-400 hover:text-white p-1"><X size={24} /></button>
             </div>
             <div className="space-y-3 sm:space-y-4">
+              <div className="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-cyan-500 transition-colors">
+                {clipImagePreview ? (
+                  <div className="relative">
+                    <img src={clipImagePreview} alt="Preview" className="w-full h-32 object-cover rounded-lg" />
+                    <button onClick={() => { setClipImagePreview(''); setNewClip({...newClip, image: ''}); }} className="absolute top-2 right-2 bg-red-600 p-1 rounded-full"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer">
+                    <Upload className="mx-auto mb-2 text-gray-400" size={32} />
+                    <p className="text-sm text-gray-400">Click to upload thumbnail</p>
+                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'clip')} className="hidden" />
+                  </label>
+                )}
+              </div>
               <input type="text" placeholder="Clip Title" value={newClip.title} onChange={e => setNewClip({...newClip, title: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
               <input type="text" placeholder="Game" value={newClip.game} onChange={e => setNewClip({...newClip, game: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
               <input type="text" placeholder="Your Name" value={newClip.uploader} onChange={e => setNewClip({...newClip, uploader: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
@@ -385,6 +433,20 @@ export default function GamingHub() {
               <button onClick={() => { setShowEditClipModal(false); setEditingClip(null); }} className="text-gray-400 hover:text-white p-1"><X size={24} /></button>
             </div>
             <div className="space-y-3 sm:space-y-4">
+              <div className="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-cyan-500 transition-colors">
+                {editingClip.image ? (
+                  <div className="relative">
+                    <img src={editingClip.image} alt="Preview" className="w-full h-32 object-cover rounded-lg" />
+                    <button onClick={() => setEditingClip({...editingClip, image: ''})} className="absolute top-2 right-2 bg-red-600 p-1 rounded-full"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer">
+                    <Upload className="mx-auto mb-2 text-gray-400" size={32} />
+                    <p className="text-sm text-gray-400">Click to upload thumbnail</p>
+                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'editClip')} className="hidden" />
+                  </label>
+                )}
+              </div>
               <input type="text" placeholder="Clip Title" value={editingClip.title} onChange={e => setEditingClip({...editingClip, title: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
               <input type="text" placeholder="Game" value={editingClip.game} onChange={e => setEditingClip({...editingClip, game: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
               <input type="text" placeholder="Uploader" value={editingClip.uploader} onChange={e => setEditingClip({...editingClip, uploader: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
@@ -401,9 +463,23 @@ export default function GamingHub() {
           <div className="bg-gray-800 rounded-xl p-4 sm:p-6 w-full max-w-md border border-gray-700 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg sm:text-xl font-bold">Add Squad Member</h3>
-              <button onClick={() => setShowAddMemberModal(false)} className="text-gray-400 hover:text-white p-1"><X size={24} /></button>
+              <button onClick={() => { setShowAddMemberModal(false); setMemberImagePreview(''); }} className="text-gray-400 hover:text-white p-1"><X size={24} /></button>
             </div>
             <div className="space-y-3 sm:space-y-4">
+              <div className="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-cyan-500 transition-colors">
+                {memberImagePreview ? (
+                  <div className="relative">
+                    <img src={memberImagePreview} alt="Preview" className="w-16 h-16 object-cover rounded-full mx-auto" />
+                    <button onClick={() => { setMemberImagePreview(''); setNewMember({...newMember, image: ''}); }} className="absolute top-0 right-1/3 bg-red-600 p-1 rounded-full"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer">
+                    <Upload className="mx-auto mb-2 text-gray-400" size={32} />
+                    <p className="text-sm text-gray-400">Click to upload avatar</p>
+                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'member')} className="hidden" />
+                  </label>
+                )}
+              </div>
               <input type="text" placeholder="Gamer Name" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
               <input type="url" placeholder="Twitch URL" value={newMember.twitch} onChange={e => setNewMember({...newMember, twitch: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
               <input type="text" placeholder="Stream Title (optional)" value={newMember.streamTitle} onChange={e => setNewMember({...newMember, streamTitle: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
@@ -423,6 +499,20 @@ export default function GamingHub() {
               <button onClick={() => { setShowEditMemberModal(false); setEditingMember(null); }} className="text-gray-400 hover:text-white p-1"><X size={24} /></button>
             </div>
             <div className="space-y-3 sm:space-y-4">
+              <div className="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-cyan-500 transition-colors">
+                {editingMember.image ? (
+                  <div className="relative">
+                    <img src={editingMember.image} alt="Preview" className="w-16 h-16 object-cover rounded-full mx-auto" />
+                    <button onClick={() => setEditingMember({...editingMember, image: ''})} className="absolute top-0 right-1/3 bg-red-600 p-1 rounded-full"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer">
+                    <Upload className="mx-auto mb-2 text-gray-400" size={32} />
+                    <p className="text-sm text-gray-400">Click to upload avatar</p>
+                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'editMember')} className="hidden" />
+                  </label>
+                )}
+              </div>
               <input type="text" placeholder="Gamer Name" value={editingMember.name} onChange={e => setEditingMember({...editingMember, name: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
               <input type="url" placeholder="Twitch URL" value={editingMember.twitch} onChange={e => setEditingMember({...editingMember, twitch: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
               <input type="text" placeholder="Stream Title" value={editingMember.streamTitle || ''} onChange={e => setEditingMember({...editingMember, streamTitle: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
