@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Upload, Twitch, Video, Radio, Users, X, Play, Trash2, Trophy } from 'lucide-react';
+import { Upload, Twitch, Video, Radio, Users, X, Play, Trash2, Trophy, Edit2 } from 'lucide-react';
 
 const API_URL = 'https://w3tb3ans.com/api';
+const ADMIN_PASSWORD = 'Haveagoodday#1234';
 
 export default function GamingHub() {
   const [activeTab, setActiveTab] = useState('live');
@@ -9,9 +10,23 @@ export default function GamingHub() {
   const [members, setMembers] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showEditClipModal, setShowEditClipModal] = useState(false);
+  const [showEditMemberModal, setShowEditMemberModal] = useState(false);
   const [newClip, setNewClip] = useState({ title: '', game: '', url: '', uploader: '' });
   const [newMember, setNewMember] = useState({ name: '', twitch: '', isLive: false, streamTitle: '', game: '' });
+  const [editingClip, setEditingClip] = useState(null);
+  const [editingMember, setEditingMember] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check for admin access
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const adminParam = params.get('admin');
+    if (adminParam === ADMIN_PASSWORD) {
+      setIsAdmin(true);
+    }
+  }, []);
 
   // Load data from API on mount
   useEffect(() => {
@@ -49,6 +64,24 @@ export default function GamingHub() {
     }
   };
 
+  const handleEditClip = async () => {
+    if (editingClip && editingClip.title && editingClip.url) {
+      try {
+        const res = await fetch(`${API_URL}/clips/${editingClip.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editingClip)
+        });
+        const updated = await res.json();
+        setClips(clips.map(c => c.id === updated.id ? updated : c));
+        setEditingClip(null);
+        setShowEditClipModal(false);
+      } catch (e) {
+        console.error('Failed to edit clip:', e);
+      }
+    }
+  };
+
   const handleAddMember = async () => {
     if (newMember.name && newMember.twitch) {
       try {
@@ -63,6 +96,24 @@ export default function GamingHub() {
         setShowAddMemberModal(false);
       } catch (e) {
         console.error('Failed to add member:', e);
+      }
+    }
+  };
+
+  const handleEditMember = async () => {
+    if (editingMember && editingMember.name && editingMember.twitch) {
+      try {
+        const res = await fetch(`${API_URL}/members/${editingMember.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editingMember)
+        });
+        const updated = await res.json();
+        setMembers(members.map(m => m.id === updated.id ? updated : m));
+        setEditingMember(null);
+        setShowEditMemberModal(false);
+      } catch (e) {
+        console.error('Failed to edit member:', e);
       }
     }
   };
@@ -95,6 +146,16 @@ export default function GamingHub() {
     }
   };
 
+  const openEditClip = (clip) => {
+    setEditingClip({ ...clip });
+    setShowEditClipModal(true);
+  };
+
+  const openEditMember = (member) => {
+    setEditingMember({ ...member });
+    setShowEditMemberModal(true);
+  };
+
   const liveMembers = members.filter(m => m.isLive);
 
   if (!isLoaded) {
@@ -116,6 +177,7 @@ export default function GamingHub() {
           <h1 className="text-lg sm:text-2xl font-bold flex items-center gap-2">
             <Trophy className="text-cyan-400 flex-shrink-0" size={24} />
             <span className="truncate">W3T B3AnS</span>
+            {isAdmin && <span className="text-xs bg-cyan-600 px-2 py-0.5 rounded ml-2">Admin</span>}
           </h1>
           {liveMembers.length > 0 && (
             <div className="flex items-center gap-2 bg-red-600/20 border border-red-500/30 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full">
@@ -196,9 +258,11 @@ export default function GamingHub() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl sm:text-2xl font-bold">Gaming Clips</h2>
-              <button onClick={() => setShowUploadModal(true)} className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm">
-                <Upload size={16} /> Upload
-              </button>
+              {isAdmin && (
+                <button onClick={() => setShowUploadModal(true)} className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm">
+                  <Upload size={16} /> Upload
+                </button>
+              )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {clips.map(clip => (
@@ -215,9 +279,16 @@ export default function GamingHub() {
                     <p className="text-gray-500 text-xs mt-1">{clip.date}</p>
                     <div className="flex gap-2 mt-3">
                       <a href={clip.url} target="_blank" rel="noopener noreferrer" className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-center py-2 rounded-lg text-sm transition-colors">Watch</a>
-                      <button onClick={() => deleteClip(clip.id)} className="p-2 bg-red-600/20 hover:bg-red-600 rounded-lg transition-colors">
-                        <Trash2 size={14} />
-                      </button>
+                      {isAdmin && (
+                        <>
+                          <button onClick={() => openEditClip(clip)} className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => deleteClip(clip.id)} className="p-2 bg-red-600/20 hover:bg-red-600 rounded-lg transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -237,9 +308,11 @@ export default function GamingHub() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl sm:text-2xl font-bold">The Squad</h2>
-              <button onClick={() => setShowAddMemberModal(true)} className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm">
-                <Users size={16} /> Add
-              </button>
+              {isAdmin && (
+                <button onClick={() => setShowAddMemberModal(true)} className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm">
+                  <Users size={16} /> Add
+                </button>
+              )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {members.map(member => (
@@ -250,9 +323,15 @@ export default function GamingHub() {
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-bold text-base sm:text-lg truncate">{member.name}</h3>
-                      <button onClick={() => toggleLive(member.id)} className={`text-xs px-2 py-1 rounded-full ${member.isLive ? 'bg-red-600/20 text-red-400 border border-red-500/30' : 'bg-gray-700 text-gray-400'}`}>
-                        {member.isLive ? '🔴 Live' : '⚫ Offline'}
-                      </button>
+                      {isAdmin ? (
+                        <button onClick={() => toggleLive(member.id)} className={`text-xs px-2 py-1 rounded-full ${member.isLive ? 'bg-red-600/20 text-red-400 border border-red-500/30' : 'bg-gray-700 text-gray-400'}`}>
+                          {member.isLive ? '🔴 Live' : '⚫ Offline'}
+                        </button>
+                      ) : (
+                        <span className={`text-xs px-2 py-1 rounded-full ${member.isLive ? 'bg-red-600/20 text-red-400 border border-red-500/30' : 'bg-gray-700 text-gray-400'}`}>
+                          {member.isLive ? '🔴 Live' : '⚫ Offline'}
+                        </span>
+                      )}
                     </div>
                   </div>
                   {member.isLive && <p className="text-gray-400 text-xs sm:text-sm mb-3">Playing: {member.game}</p>}
@@ -260,9 +339,16 @@ export default function GamingHub() {
                     <a href={member.twitch} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 py-2 rounded-lg transition-colors text-sm">
                       <Twitch size={14} /> Twitch
                     </a>
-                    <button onClick={() => deleteMember(member.id)} className="p-2 bg-red-600/20 hover:bg-red-600 rounded-lg transition-colors">
-                      <Trash2 size={14} />
-                    </button>
+                    {isAdmin && (
+                      <>
+                        <button onClick={() => openEditMember(member)} className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors">
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={() => deleteMember(member.id)} className="p-2 bg-red-600/20 hover:bg-red-600 rounded-lg transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -290,6 +376,25 @@ export default function GamingHub() {
         </div>
       )}
 
+      {/* Edit Clip Modal */}
+      {showEditClipModal && editingClip && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-xl p-4 sm:p-6 w-full max-w-md border border-gray-700 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Edit Clip</h3>
+              <button onClick={() => { setShowEditClipModal(false); setEditingClip(null); }} className="text-gray-400 hover:text-white p-1"><X size={24} /></button>
+            </div>
+            <div className="space-y-3 sm:space-y-4">
+              <input type="text" placeholder="Clip Title" value={editingClip.title} onChange={e => setEditingClip({...editingClip, title: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
+              <input type="text" placeholder="Game" value={editingClip.game} onChange={e => setEditingClip({...editingClip, game: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
+              <input type="text" placeholder="Uploader" value={editingClip.uploader} onChange={e => setEditingClip({...editingClip, uploader: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
+              <input type="url" placeholder="Clip URL" value={editingClip.url} onChange={e => setEditingClip({...editingClip, url: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
+              <button onClick={handleEditClip} className="w-full bg-cyan-600 hover:bg-cyan-700 py-2.5 sm:py-3 rounded-lg font-semibold transition-colors">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Member Modal */}
       {showAddMemberModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
@@ -301,7 +406,28 @@ export default function GamingHub() {
             <div className="space-y-3 sm:space-y-4">
               <input type="text" placeholder="Gamer Name" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
               <input type="url" placeholder="Twitch URL" value={newMember.twitch} onChange={e => setNewMember({...newMember, twitch: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
+              <input type="text" placeholder="Stream Title (optional)" value={newMember.streamTitle} onChange={e => setNewMember({...newMember, streamTitle: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
+              <input type="text" placeholder="Game (optional)" value={newMember.game} onChange={e => setNewMember({...newMember, game: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
               <button onClick={handleAddMember} className="w-full bg-cyan-600 hover:bg-cyan-700 py-2.5 sm:py-3 rounded-lg font-semibold transition-colors">Add Member</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {showEditMemberModal && editingMember && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-xl p-4 sm:p-6 w-full max-w-md border border-gray-700 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Edit Member</h3>
+              <button onClick={() => { setShowEditMemberModal(false); setEditingMember(null); }} className="text-gray-400 hover:text-white p-1"><X size={24} /></button>
+            </div>
+            <div className="space-y-3 sm:space-y-4">
+              <input type="text" placeholder="Gamer Name" value={editingMember.name} onChange={e => setEditingMember({...editingMember, name: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
+              <input type="url" placeholder="Twitch URL" value={editingMember.twitch} onChange={e => setEditingMember({...editingMember, twitch: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
+              <input type="text" placeholder="Stream Title" value={editingMember.streamTitle || ''} onChange={e => setEditingMember({...editingMember, streamTitle: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
+              <input type="text" placeholder="Game" value={editingMember.game || ''} onChange={e => setEditingMember({...editingMember, game: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 sm:py-3 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-sm sm:text-base" />
+              <button onClick={handleEditMember} className="w-full bg-cyan-600 hover:bg-cyan-700 py-2.5 sm:py-3 rounded-lg font-semibold transition-colors">Save Changes</button>
             </div>
           </div>
         </div>
