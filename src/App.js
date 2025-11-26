@@ -253,7 +253,11 @@ export default function GamingHub() {
                 {liveMembers.map(member => (
                   <div key={member.id} className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700">
                     <div className="aspect-video bg-gradient-to-br from-purple-900 to-indigo-900 flex items-center justify-center relative">
-                      <Users size={48} className="text-gray-600" />
+                      {member.image ? (
+                        <img src={member.image} alt={member.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Users size={48} className="text-gray-600" />
+                      )}
                       <div className="absolute top-3 left-3 flex items-center gap-2 bg-red-600 px-2 py-1 rounded text-xs sm:text-sm">
                         <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
                         LIVE
